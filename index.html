@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
-  <title>Star — Dissolve & Reform (Three.js)</title>
-  <meta name="description" content="A star dissolves into particles and reforms, with bloom, pulse, and switchable themes. Runs on GitHub Pages without a build.">
+  <title>Star — Dissolve & Reform (Canvas 2D, No Dependencies)</title>
+  <meta name="description" content="Animated star that dissolves into dust and reforms with pulse and themes. Pure Canvas2D — no external scripts.">
   <style>
     *{box-sizing:border-box} html,body{height:100%} body{margin:0;background:#0b0f15;color:#dfe7ff;font:14px/1.4 system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;overflow:hidden}
     .hud{position:absolute;inset:16px 16px auto 16px;display:flex;justify-content:space-between;align-items:center;background:rgba(10,15,24,.55);backdrop-filter:blur(6px);border:1px solid rgba(255,255,255,.08);border-radius:16px;padding:10px 12px;gap:8px;z-index:10}
@@ -13,6 +13,7 @@
     select,button{background:rgba(255,255,255,.08);color:#e9f1ff;border:1px solid rgba(255,255,255,.18);border-radius:12px;padding:8px 12px;cursor:pointer}
     #c{width:100%;height:100%;display:block}
     footer{position:absolute;inset:auto 0 0 0;color:#ddd;text-align:center;padding:12px 16px;background:linear-gradient(to bottom,rgba(0,0,0,0),rgba(0,0,0,.35));font-size:12px}
+    #err{position:fixed;inset:auto 12px 12px 12px;background:#220d;color:#ffdede;border:1px solid #f88;border-radius:10px;padding:8px 10px;font:12px/1.4 ui-monospace,consolas,monaco;display:none;z-index:999}
   </style>
 </head>
 <body>
@@ -37,149 +38,187 @@
   </div>
 
   <canvas id="c">Your browser does not support HTML5 Canvas.</canvas>
+  <footer><span>Canvas2D • No CDNs • © 2025 Helix (MIT)</span></footer>
+  <div id="err"></div>
 
-  <footer>
-    <span>Three.js + UnrealBloomPass • Toggle themes, pulse, and dissolve/reform • © 2025 Helix (MIT)</span>
-  </footer>
+  <script>
+    // --- tiny on-page error helper
+    const errBox = document.getElementById('err');
+    function showErr(msg){ errBox.style.display='block'; errBox.textContent = msg; }
+    window.addEventListener('error', e => showErr('Error: ' + e.message));
+    window.addEventListener('unhandledrejection', e => showErr('Promise: ' + (e.reason && e.reason.message || e.reason)));
 
-  <!-- Runs directly on GitHub Pages (CDN ES modules) -->
-  <script type="module">
-    import * as THREE from 'https://unpkg.com/three@0.158.0/build/three.module.js';
-    import { OrbitControls } from 'https://unpkg.com/three@0.158.0/examples/jsm/controls/OrbitControls.js';
-    import { EffectComposer } from 'https://unpkg.com/three@0.158.0/examples/jsm/postprocessing/EffectComposer.js';
-    import { RenderPass } from 'https://unpkg.com/three@0.158.0/examples/jsm/postprocessing/RenderPass.js';
-    import { UnrealBloomPass } from 'https://unpkg.com/three@0.158.0/examples/jsm/postprocessing/UnrealBloomPass.js';
-
+    // --- Canvas setup
     const canvas = document.getElementById('c');
-    const renderer = new THREE.WebGLRenderer({ canvas, antialias:true, alpha:false });
-    renderer.setPixelRatio(Math.min(2, window.devicePixelRatio));
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.outputColorSpace = THREE.SRGBColorSpace;
-
-    const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x070b12);
-    const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.01, 100);
-    camera.position.set(0,0,4.5);
-
-    const controls = new OrbitControls(camera, renderer.domElement);
-    controls.enableDamping = true;
-    controls.enablePan = false;
-
-    const composer = new EffectComposer(renderer);
-    composer.addPass(new RenderPass(scene, camera));
-    const bloom = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 1.2, 0.8, 0.0);
-    composer.addPass(bloom);
-
-    const THEMES = {
-      starlight: { colors: [0xffffff, 0x88c9ff], bloom: 1.2, bg: 0x070b12 },
-      cosmic:    { colors: [0x50ffd3, 0xa482ff], bloom: 1.6, bg: 0x080913 },
-      inferno:   { colors: [0xffe079, 0xff5a2e], bloom: 1.5, bg: 0x120807 },
-      aurora:    { colors: [0x70ff7a, 0x66ccff], bloom: 1.4, bg: 0x05120b }
-    };
-
-    function makeStarShape(R=1.5, r=0.62, spikes=5){
-      const s = new THREE.Shape(); const step = Math.PI/spikes; let a = -Math.PI/2;
-      s.moveTo(Math.cos(a)*R, Math.sin(a)*R);
-      for(let i=0;i<spikes;i++){ a+=step; s.lineTo(Math.cos(a)*r, Math.sin(a)*r); a+=step; s.lineTo(Math.cos(a)*R, Math.sin(a)*R); }
-      s.closePath(); return s;
+    const ctx = canvas.getContext('2d', { alpha: false });
+    function resize(){
+      const dpr = Math.min(2, window.devicePixelRatio || 1);
+      canvas.width = Math.floor(innerWidth * dpr);
+      canvas.height = Math.floor(innerHeight * dpr);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     }
+    addEventListener('resize', resize, { passive: true }); resize();
 
-    function generateStarPoints(count=2800){
-      const shape = makeStarShape();
-      const outline = shape.getSpacedPoints(Math.min(1400, Math.max(300, Math.floor(count*0.55))));
+    // --- Themes
+    const THEMES = {
+      starlight: { colors: ['#ffffff', '#88c9ff'], bg: '#0b0f15' },
+      cosmic:    { colors: ['#50ffd3', '#a482ff'], bg: '#0a0b13' },
+      inferno:   { colors: ['#ffe079', '#ff5a2e'], bg: '#120807' },
+      aurora:    { colors: ['#70ff7a', '#66ccff'], bg: '#05120b' }
+    };
+    let themeKey = 'starlight';
+
+    // --- Utils
+    const hex2rgb = (h) => {
+      const m = h.replace('#',''); const n = m.length===3 ? m.split('').map(c=>c+c).join('') : m;
+      const i = parseInt(n, 16); return { r:(i>>16)&255, g:(i>>8)&255, b:i&255 };
+    };
+    const lerp = (a,b,t)=>a+(b-a)*t;
+
+    // --- Star point cloud
+    function makeStarPoints(count=1800, R=150, r=62){
       const pts = [];
-      for(let i=0;i<count-outline.length;i++){
-        const t = Math.random();
-        const a = outline[(Math.random()*outline.length)|0];
-        const b = outline[(Math.random()*outline.length)|0];
-        const x = a.x + (b.x-a.x)*t;
-        const y = a.y + (b.y-a.y)*t;
-        const k = (Math.random()*0.32) * (Math.random()<0.5?-1:1);
-        pts.push(new THREE.Vector3(x*(1+k), y*(1+k), (Math.random()-0.5)*0.16));
+      const step = Math.PI/5; // 5 spikes
+      let rot = -Math.PI/2;
+      const outline = [];
+      // outline polyline
+      const segs = Math.min(900, Math.max(200, Math.floor(count*0.5)));
+      for (let i=0;i<5;i++){
+        outline.push({x:Math.cos(rot)*R,y:Math.sin(rot)*R}); rot+=step;
+        outline.push({x:Math.cos(rot)*r,y:Math.sin(rot)*r}); rot+=step;
       }
-      outline.forEach(p => pts.push(new THREE.Vector3(p.x, p.y, (Math.random()-0.5)*0.1)));
+      // resample outline
+      const O = [];
+      for (let i=0;i<outline.length;i++){
+        const a = outline[i]; const b = outline[(i+1)%outline.length];
+        const L = Math.hypot(b.x-a.x,b.y-a.y);
+        const n = Math.max(2, Math.floor(segs/outline.length * (L/(R))));
+        for (let j=0;j<n;j++){ const t=j/n; O.push({x:lerp(a.x,b.x,t), y:lerp(a.y,b.y,t)}); }
+      }
+      // interior jitter
+      for (let i=0;i<count - O.length;i++){
+        const a = O[(Math.random()*O.length)|0], b = O[(Math.random()*O.length)|0];
+        const t = Math.random(), x = a.x + (b.x-a.x)*t, y = a.y + (b.y-a.y)*t;
+        const k = (Math.random()*0.32) * (Math.random()<0.5?-1:1);
+        pts.push({x:x*(1+k), y:y*(1+k), z:(Math.random()-0.5)*16});
+      }
+      O.forEach(p=>pts.push({x:p.x,y:p.y,z:(Math.random()-0.5)*10}));
       return pts;
     }
 
-    let basePositions = generateStarPoints(2800);
-    const geom = new THREE.BufferGeometry().setFromPoints(basePositions);
-    geom.center();
-
-    const colors = new Float32Array(basePositions.length*3);
-    geom.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-
-    const material = new THREE.PointsMaterial({
-      size: 0.02, sizeAttenuation: true, vertexColors: true, transparent: true, opacity: 1.0, depthWrite: false
-    });
-
-    const points = new THREE.Points(geom, material);
-    scene.add(points);
-
-    let scatter = new Float32Array(basePositions.length*3);
-    function reseedScatter(radius=4.0){
-      for(let i=0;i<scatter.length;i+=3){
-        const r = radius * Math.cbrt(Math.random());
+    let base = makeStarPoints(1800);
+    let scatter = new Float32Array(base.length*3);
+    function reseedScatter(radius = 380){
+      for (let i=0;i<scatter.length;i+=3){
+        const rr = radius * Math.cbrt(Math.random());
         const th = Math.random()*Math.PI*2;
         const ph = Math.acos(2*Math.random()-1);
-        scatter[i] = r*Math.sin(ph)*Math.cos(th);
-        scatter[i+1] = r*Math.sin(ph)*Math.sin(th);
-        scatter[i+2] = r*Math.cos(ph);
+        scatter[i]   = rr*Math.sin(ph)*Math.cos(th);
+        scatter[i+1] = rr*Math.sin(ph)*Math.sin(th);
+        scatter[i+2] = rr*Math.cos(ph);
       }
     }
     reseedScatter();
 
-    let dissolve=0, targetDissolve=0, pulseOn=true, themeKey='starlight';
+    // per-point colors for current theme
+    let colors = new Array(base.length);
     function applyTheme(key){
       themeKey = key;
-      const theme = THEMES[key];
-      bloom.strength = theme.bloom;
-      scene.background = new THREE.Color(theme.bg);
-      const c1 = theme.colors[0], c2 = theme.colors[1];
-      for(let i=0;i<basePositions.length;i++){
-        const t = i/basePositions.length;
-        const col = new THREE.Color(c1).lerp(new THREE.Color(c2), t);
-        colors[i*3]=col.r; colors[i*3+1]=col.g; colors[i*3+2]=col.b;
+      const [c1,c2] = THEMES[key].colors.map(hex2rgb);
+      for (let i=0;i<base.length;i++){
+        const t = i/(base.length-1);
+        colors[i] = {
+          r: Math.round(lerp(c1.r, c2.r, t)),
+          g: Math.round(lerp(c1.g, c2.g, t)),
+          b: Math.round(lerp(c1.b, c2.b, t))
+        };
       }
-      geom.attributes.color.needsUpdate = true;
+      document.body.style.background = THEMES[key].bg;
     }
     applyTheme(themeKey);
 
-    function easeInOut(t){ return t<0.5 ? 2*t*t : 1 - Math.pow(-2*t+2,2)/2; }
+    // --- Animation state
+    let dissolve = 0, targetDissolve = 0, pulseOn = true, rot = 0;
+    const easeInOut = t => t<0.5?2*t*t:1-(((-2*t+2)**2)/2);
 
-    function resize(){
-      camera.aspect = window.innerWidth/window.innerHeight;
-      camera.updateProjectionMatrix();
-      renderer.setSize(window.innerWidth, window.innerHeight);
-      composer.setSize(window.innerWidth, window.innerHeight);
-      bloom.setSize(window.innerWidth, window.innerHeight);
-    }
-    window.addEventListener('resize', resize);
+    // --- Auto cycle with initial star period
+    const AUTO = { enabled:true, introHoldMs:2000, dissolveMs:2500, scatteredHoldMs:1500, reformMs:2500, loop:true };
+    let autoPhase = 0, autoT0 = performance.now();
 
+    // --- UI
     const themeSel = document.getElementById('theme');
     themeSel.addEventListener('change', e => applyTheme(e.target.value));
     document.getElementById('toggle').addEventListener('click', ()=>{
       targetDissolve = targetDissolve>0 ? 0 : 1;
       if (targetDissolve>0) reseedScatter();
     });
-    document.getElementById('pulse').addEventListener('click', (e)=>{
+    document.getElementById('pulse').addEventListener('click', e=>{
       pulseOn = !pulseOn; e.target.textContent = 'Pulse: ' + (pulseOn?'On':'Off');
     });
     document.getElementById('reset').addEventListener('click', ()=>{
-      targetDissolve = 0; dissolve = 0;
+      targetDissolve = 0; dissolve = 0; rot = 0;
       applyTheme(themeKey);
     });
 
-    const pos = geom.getAttribute('position');
+    // --- FPS readout
     const fpsEl = document.getElementById('fps');
     let frames=0, lastFps=performance.now();
 
-    function animate(now){
-      requestAnimationFrame(animate);
-      controls.update();
+    // --- Draw loop (Canvas 2D, additive blend)
+    function draw(now){
+      requestAnimationFrame(draw);
 
+      // auto phases
+      if (AUTO.enabled){
+        const elapsed = now - autoT0;
+        if (autoPhase===0 && elapsed>=AUTO.introHoldMs){ autoPhase=1; autoT0=now; targetDissolve=1; reseedScatter(); }
+        else if (autoPhase===1 && (elapsed>=AUTO.dissolveMs || dissolve>0.98)){ autoPhase=2; autoT0=now; }
+        else if (autoPhase===2 && elapsed>=AUTO.scatteredHoldMs){ autoPhase=3; autoT0=now; targetDissolve=0; }
+        else if (autoPhase===3 && (elapsed>=AUTO.reformMs || dissolve<0.02)){ if (AUTO.loop){ autoPhase=0; autoT0=now; } else { AUTO.enabled=false; } }
+      }
+
+      // state
       dissolve += (targetDissolve - dissolve) * 0.06;
-      const k = easeInOut(THREE.MathUtils.clamp(dissolve, 0, 1));
+      const k = easeInOut(Math.max(0, Math.min(1, dissolve)));
+      const t = now*0.0015;
+      const pulse = pulseOn ? (Math.sin(t)*0.12 + 0.15) : 0.12;
+      rot += 0.0015;
 
-      for(let i=0;i<pos.count;i++){
-        const i3 = i*3;
-        const sx = basePositions[i].x, sy = basePositions
+      // clear
+      ctx.fillStyle = getComputedStyle(document.body).backgroundColor;
+      ctx.fillRect(0,0,innerWidth,innerHeight);
+
+      // transform
+      ctx.save();
+      ctx.translate(innerWidth/2, innerHeight/2);
+      const s = 1.0 + pulse*(1.0 - 0.5*k);
+      ctx.scale(s, s);
+      ctx.rotate(rot);
+
+      // additive-ish glow
+      ctx.globalCompositeOperation = 'lighter';
+
+      // draw particles
+      for (let i=0;i<base.length;i++){
+        const bx = base[i].x, by = base[i].y, bz = base[i].z;
+        const tx = scatter[i*3], ty = scatter[i*3+1], tz = scatter[i*3+2];
+        const x = bx + (tx - bx)*k;
+        const y = by + (ty - by)*k;
+        const d = 1 + (bz + (tz-bz)*k)*0.002; // slight depth-ish scaling
+        const c = colors[i];
+        ctx.fillStyle = `rgba(${c.r},${c.g},${c.b},0.75)`;
+        const r = 1.4 * d * (1 + pulse*0.5);
+        ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI*2); ctx.fill();
+      }
+
+      ctx.restore();
+      ctx.globalCompositeOperation = 'source-over';
+
+      // fps
+      frames++; const dt = now - lastFps;
+      if (dt >= 500){ fpsEl.textContent = Math.round((frames/dt)*1000) + ' fps'; frames=0; lastFps=now; }
+    }
+    requestAnimationFrame(draw);
+  </script>
+</body>
+</html>
