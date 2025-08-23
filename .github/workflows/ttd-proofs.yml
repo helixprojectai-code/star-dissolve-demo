@@ -1,39 +1,46 @@
 name: TTD Proofs — build & publish
 on:
-  push: { branches: [ main ] }
+  push:
+    branches:
+      - main
   workflow_dispatch: {}
 
 permissions:
   contents: write
-  id-token: write   # needed for keyless (Sigstore) signing
+  id-token: write
 
 jobs:
   proofs:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - uses: actions/setup-python@v5
-        with: { python-version: '3.x' }
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
 
-      # ------- DIAGNOSTICS -------
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Build (for proofs)
+        run: |
+          npm ci || npm i
+          npm run build || echo "No npm project; skipping build"
+
       - name: Detect repo files (debug)
         run: |
           echo "== pwd ==" && pwd
           echo "== ls -la ==" && ls -la
           echo "== find index.html (2 levels) ==" && find . -maxdepth 2 -name index.html -print || true
-          echo "== find dist (2 levels) ==" && find . -maxdepth 2 -type d -name dist -print || true
-
-      # ------- GENERATE PROOFS -------
-      - uses: actions/setup-node@v4
-  with: { node-version: 20, cache: npm }
-
-- name: Build (for proofs)
-  run: |
-    npm ci || npm i
-    npm run build
+          echo "== list dist ==" && (ls -la dist || echo "no dist")
 
       - name: Generate proofs (inline)
+        shell: bash
         run: |
           python - <<'PY'
           import os, json, hashlib, time
@@ -43,132 +50,122 @@ jobs:
           OUT  = ROOT / 'proofs'
           OUT.mkdir(exist_ok=True)
 
-          # Hash current deploy: prefer Canvas index.html; also include dist/**/* if present
+          # Hash index.html and any built dist/** files
           candidates = []
           for pat in ['index.html', 'dist/**/*']:
-            for p in ROOT.glob(pat):
-              if p.is_file():
-                candidates.append(p)
+              for p in ROOT.glob(pat):
+                  if p.is_file():
+                      candidates.append(p)
 
-          files = sorted(set(candidates), key=lambda p: p.as_posix())
+          files = sorted({p for p in candidates}, key=lambda p: p.as_posix())
 
           def sha256_file(path: Path):
-            h = hashlib.sha256()
-            with open(path, 'rb') as f:
-              for chunk in iter(lambda: f.read(1<<20), b''):
-                h.update(chunk)
-            return h.hexdigest()
+              h = hashlib.sha256()
+              with open(path, 'rb') as f:
+                  for chunk in iter(lambda: f.read(1<<20), b''):
+                      h.update(chunk)
+              return h.hexdigest()
 
           lines, hashes = [], []
           for p in files:
-            h = sha256_file(p)
-            lines.append(f"{h}  {p.as_posix()} ({p.stat().st_size} bytes)")
-            hashes.append((p.as_posix(), h))
+              h = sha256_file(p)
+              lines.append(f"{h}  {p.as_posix()} ({p.stat().st_size} bytes)")
+              hashes.append((p.as_posix(), h))
           (OUT / 'HASHES.txt').write_text("\n".join(lines) if lines else "No artifacts found.", encoding='utf-8')
 
           def merkle_root(hex_list):
-            if not hex_list: return None, []
-            lvl = [bytes.fromhex(x) for x in hex_list]
-            lvls = [[x.hex() for x in lvl]]
-            while len(lvl) > 1:
-              nxt = []
-              for i in range(0, len(lvl), 2):
-                a = lvl[i]; b = lvl[i+1] if i+1 < len(lvl) else lvl[i]
-                import hashlib
-                nxt.append(hashlib.sha256(a+b).digest())
-              lvl = nxt; lvls.append([x.hex() for x in lvl])
-            return lvl[0].hex(), lvls
+              if not hex_list: return None, []
+              level = [bytes.fromhex(x) for x in hex_list]
+              levels = [[x.hex() for x in level]]
+              while len(level) > 1:
+                  nxt = []
+                  for i in range(0, len(level), 2):
+                      a = level[i]
+                      b = level[i+1] if i+1 < len(level) else level[i]
+                      import hashlib
+                      nxt.append(hashlib.sha256(a+b).digest())
+                  level = nxt
+                  levels.append([x.hex() for x in level])
+              return level[0].hex(), levels
 
-          root, lvls = merkle_root([h for _, h in hashes])
+          root, levels = merkle_root([h for _, h in hashes])
           merkle = {
-            "algorithm": "sha256",
-            "leaves": [{"file": f, "sha256": h} for f, h in hashes],
-            "levels": lvls,
-            "merkle_root": root
+              "algorithm": "sha256",
+              "leaves": [{"file": f, "sha256": h} for f, h in hashes],
+              "levels": levels,
+              "merkle_root": root
           }
           (OUT / 'MERKLE.json').write_text(json.dumps(merkle, indent=2), encoding='utf-8')
 
           sbom = {
-            "bomFormat":"CycloneDX","specVersion":"1.4","version":1,
-            "metadata":{"timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())},
-            "components":[
-              {"type":"library","name":"three","version":"0.158.0","purl":"pkg:npm/three@0.158.0"},
-              {"type":"library","name":"vite","version":"^5.0.0","purl":"pkg:npm/vite@5.0.0"}
-            ]
+              "bomFormat": "CycloneDX",
+              "specVersion": "1.4",
+              "version": 1,
+              "metadata": {"timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())},
+              "components": [
+                  {"type":"library","name":"three","version":"0.158.0","purl":"pkg:npm/three@0.158.0"},
+                  {"type":"library","name":"vite","version":"^5.0.0","purl":"pkg:npm/vite@5.0.0"}
+              ]
           }
           (OUT / 'SBOM.json').write_text(json.dumps(sbom, indent=2), encoding='utf-8')
 
           att = {
-            "_type":"https://in-toto.io/Statement/v1",
-            "predicateType":"https://slsa.dev/provenance/v1",
-            "subject":[{"name": f, "digest":{"sha256": h}} for f, h in hashes],
-            "predicate":{
-              "buildType":"https://slsa.dev/container-based-build/v1#vite-gh-pages",
-              "builder":{"id":"github-actions://ttd-proofs"},
-              "metadata":{"invocationId":f"ttd-proofs-{int(time.time())}"}
-            }
+              "_type":"https://in-toto.io/Statement/v1",
+              "predicateType":"https://slsa.dev/provenance/v1",
+              "subject":[{"name": f, "digest": {"sha256": h}} for f, h in hashes],
+              "predicate":{
+                  "buildType":"https://slsa.dev/container-based-build/v1#vite-gh-pages",
+                  "builder":{"id":"github-actions://ttd-proofs"},
+                  "metadata":{"invocationId": f"ttd-proofs-{int(time.time())}"}
+              }
           }
           (OUT / 'ATTESTATION.json').write_text(json.dumps(att, indent=2), encoding='utf-8')
 
-          (OUT / 'README.md').write_text(
-            "Proofs generated via GitHub Actions. Verify hashes in HASHES.txt.",
-            encoding='utf-8'
-          )
+          (OUT / 'README.md').write_text("Proofs generated via GitHub Actions. Verify hashes in HASHES.txt.", encoding='utf-8')
 
           print("Files hashed:", [p.as_posix() for p in files])
           PY
 
       - name: Show proofs (debug)
         run: |
-          echo "== proofs directory =="
           ls -la proofs || true
-          echo "== HASHES.txt =="
+          echo "----- HASHES.txt -----"
           cat proofs/HASHES.txt || true
 
-      # ------- PACK ZIP -------
-      - name: Pack ZIP for releases (python)
+      - name: Pack proofs ZIP
+        shell: bash
         run: |
           python - <<'PY'
           import os, zipfile
           z=zipfile.ZipFile('ttd_proofs_pack.zip','w',zipfile.ZIP_DEFLATED)
-          for root,_,files in os.walk('proofs'):
-            for f in files:
-              p=os.path.join(root,f)
-              z.write(p, arcname=os.path.relpath(p,'proofs'))
+          for root, _, files in os.walk('proofs'):
+              for f in files:
+                  p=os.path.join(root,f)
+                  z.write(p, arcname=os.path.relpath(p,'proofs'))
           z.close()
           print("Wrote ttd_proofs_pack.zip")
           PY
 
-      # ------- INSTALL COSIGN -------
       - name: Install cosign (Sigstore)
         uses: sigstore/cosign-installer@v3.5.0
 
-      # ------- KEYLESS SIGN (guarded) -------
       - name: Keyless sign proofs (OIDC)
         env:
           COSIGN_EXPERIMENTAL: "1"
         run: |
-          set -e
           if [ -f "proofs/ATTESTATION.json" ]; then
-            echo "Signing proofs/ATTESTATION.json"
             cosign sign-blob --yes \
               --output-signature proofs/ATTESTATION.json.sig \
               --output-certificate proofs/ATTESTATION.json.cert \
               proofs/ATTESTATION.json
-          else
-            echo "WARN: proofs/ATTESTATION.json not found, skipping sign"
           fi
           if [ -f "ttd_proofs_pack.zip" ]; then
-            echo "Signing ttd_proofs_pack.zip"
             cosign sign-blob --yes \
               --output-signature proofs/ttd_proofs_pack.zip.sig \
               --output-certificate proofs/ttd_proofs_pack.zip.cert \
               ttd_proofs_pack.zip
-          else
-            echo "WARN: ttd_proofs_pack.zip not found, skipping sign"
           fi
 
-      # ------- UPLOAD ARTIFACTS (won't fail if empty) -------
       - name: Upload signed artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -182,8 +179,7 @@ jobs:
             proofs/ttd_proofs_pack.zip.cert
           if-no-files-found: warn
 
-      # ------- COMMIT TO REPO -------
-      - name: Commit proofs to repo (proofs/)
+      - name: Commit proofs to repo
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
           commit_message: "chore(proofs): update proofs pack (signed)"
@@ -191,7 +187,6 @@ jobs:
             proofs/**
             ttd_proofs_pack.zip
 
-      # ------- OPTIONAL: attach to a Release on tag -------
       - name: Release on tag
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
