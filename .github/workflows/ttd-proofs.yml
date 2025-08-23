@@ -16,6 +16,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
       - name: Setup Node (if project exists)
         uses: actions/setup-node@v4
         with:
@@ -63,7 +68,7 @@ jobs:
                       candidates.append(p)
           files = sorted({p for p in candidates}, key=lambda p: p.as_posix())
 
-          # 2) Fallback: download deployed index.html from GitHub Pages to proofs/materials/
+          # 2) Fallback: download deployed index.html from GitHub Pages
           if not files:
               owner_repo = os.environ.get('GITHUB_REPOSITORY','helixprojectai-code/star-dissolve-demo')
               owner, repo = owner_repo.split('/', 1)
@@ -115,7 +120,7 @@ jobs:
           }
           (OUT / 'MERKLE.json').write_text(json.dumps(merkle, indent=2), encoding='utf-8')
 
-          # SBOM (minimal placeholder; your Vite/three deps are reflected in dist)
+          # Minimal SBOM placeholder
           sbom = {
               "bomFormat": "CycloneDX",
               "specVersion": "1.4",
@@ -182,6 +187,24 @@ jobs:
               --output-certificate proofs/ttd_proofs_pack.zip.cert \
               ttd_proofs_pack.zip
           fi
+
+      - name: CI self-verify (attestation)
+        run: |
+          cosign verify-blob \
+            --certificate proofs/ATTESTATION.json.cert \
+            --signature   proofs/ATTESTATION.json.sig \
+            --certificate-identity "https://github.com/${{ github.repository }}/.github/workflows/ttd-proofs.yml@${{ github.ref }}" \
+            --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
+            proofs/ATTESTATION.json
+
+      - name: CI self-verify (zip)
+        run: |
+          cosign verify-blob \
+            --certificate proofs/ttd_proofs_pack.zip.cert \
+            --signature   proofs/ttd_proofs_pack.zip.sig \
+            --certificate-identity "https://github.com/${{ github.repository }}/.github/workflows/ttd-proofs.yml@${{ github.ref }}" \
+            --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
+            ttd_proofs_pack.zip
 
       - name: Upload signed artifacts
         uses: actions/upload-artifact@v4
