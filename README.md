@@ -31,7 +31,7 @@ A tiny visual: a star dissolves into glowing particles, scatters with dust-like 
 
 We value a respectful and welcoming community.
 
-- 📜 Please review our [Code of Conduct](./CODE_OF_CONDUCT.md)  
+- 📜 Please review our [Code of Conduct](./CODE_OF_CONDUCT.md)
 - 🤝 See our [Contributing Guidelines](./CONTRIBUTING.md) for how to get involved
 
 
