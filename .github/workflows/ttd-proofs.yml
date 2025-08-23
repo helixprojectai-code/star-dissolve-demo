@@ -2,27 +2,29 @@ name: TTD Proofs — build & publish
 on:
   push: { branches: [ main ] }
   workflow_dispatch: {}
+
 permissions:
   contents: write
-  id-token: write   # required for keyless (Sigstore) signing
+  id-token: write   # needed for keyless (Sigstore) signing
 
 jobs:
   proofs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-python@v5
         with: { python-version: '3.x' }
 
+      # ------- DIAGNOSTICS -------
       - name: Detect repo files (debug)
         run: |
-          echo "== ls -la (root) =="
-          ls -la
-          echo "== find index.html anywhere (2 levels) =="
-          find . -maxdepth 2 -name index.html -print || true
-          echo "== find dist (2 levels) =="
-          find . -maxdepth 2 -type d -name dist -print || true
+          echo "== pwd ==" && pwd
+          echo "== ls -la ==" && ls -la
+          echo "== find index.html (2 levels) ==" && find . -maxdepth 2 -name index.html -print || true
+          echo "== find dist (2 levels) ==" && find . -maxdepth 2 -type d -name dist -print || true
 
+      # ------- GENERATE PROOFS -------
       - name: Generate proofs (inline)
         run: |
           python - <<'PY'
@@ -33,25 +35,22 @@ jobs:
           OUT  = ROOT / 'proofs'
           OUT.mkdir(exist_ok=True)
 
-          # Try Canvas single-file first; if not present, try Vite dist/*
+          # Hash current deploy: prefer Canvas index.html; also include dist/**/* if present
           candidates = []
           for pat in ['index.html', 'dist/**/*']:
             for p in ROOT.glob(pat):
               if p.is_file():
                 candidates.append(p)
 
-          # Deterministic ordering
           files = sorted(set(candidates), key=lambda p: p.as_posix())
 
           def sha256_file(path: Path):
-            import hashlib
             h = hashlib.sha256()
             with open(path, 'rb') as f:
               for chunk in iter(lambda: f.read(1<<20), b''):
                 h.update(chunk)
             return h.hexdigest()
 
-          # Write HASHES.txt
           lines, hashes = [], []
           for p in files:
             h = sha256_file(p)
@@ -59,7 +58,6 @@ jobs:
             hashes.append((p.as_posix(), h))
           (OUT / 'HASHES.txt').write_text("\n".join(lines) if lines else "No artifacts found.", encoding='utf-8')
 
-          # Merkle (handles 0/1+ leaves)
           def merkle_root(hex_list):
             if not hex_list: return None, []
             lvl = [bytes.fromhex(x) for x in hex_list]
@@ -82,7 +80,6 @@ jobs:
           }
           (OUT / 'MERKLE.json').write_text(json.dumps(merkle, indent=2), encoding='utf-8')
 
-          # Minimal SBOM + Attestation
           sbom = {
             "bomFormat":"CycloneDX","specVersion":"1.4","version":1,
             "metadata":{"timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())},
@@ -120,13 +117,7 @@ jobs:
           echo "== HASHES.txt =="
           cat proofs/HASHES.txt || true
 
-      - name: Upload proofs folder (artifact)
-        uses: actions/upload-artifact@v4
-        with:
-          name: ttd_proofs_pack
-          path: proofs/**
-          if-no-files-found: warn   # don't fail the job if empty
-
+      # ------- PACK ZIP -------
       - name: Pack ZIP for releases (python)
         run: |
           python - <<'PY'
@@ -139,8 +130,37 @@ jobs:
           z.close()
           print("Wrote ttd_proofs_pack.zip")
           PY
-              - name: Install cosign (Sigstore)
+
+      # ------- INSTALL COSIGN -------
+      - name: Install cosign (Sigstore)
         uses: sigstore/cosign-installer@v3.5.0
+
+      # ------- KEYLESS SIGN (guarded) -------
+      - name: Keyless sign proofs (OIDC)
+        env:
+          COSIGN_EXPERIMENTAL: "1"
+        run: |
+          set -e
+          if [ -f "proofs/ATTESTATION.json" ]; then
+            echo "Signing proofs/ATTESTATION.json"
+            cosign sign-blob --yes \
+              --output-signature proofs/ATTESTATION.json.sig \
+              --output-certificate proofs/ATTESTATION.json.cert \
+              proofs/ATTESTATION.json
+          else
+            echo "WARN: proofs/ATTESTATION.json not found, skipping sign"
+          fi
+          if [ -f "ttd_proofs_pack.zip" ]; then
+            echo "Signing ttd_proofs_pack.zip"
+            cosign sign-blob --yes \
+              --output-signature proofs/ttd_proofs_pack.zip.sig \
+              --output-certificate proofs/ttd_proofs_pack.zip.cert \
+              ttd_proofs_pack.zip
+          else
+            echo "WARN: ttd_proofs_pack.zip not found, skipping sign"
+          fi
+
+      # ------- UPLOAD ARTIFACTS (won't fail if empty) -------
       - name: Upload signed artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -152,15 +172,18 @@ jobs:
             ttd_proofs_pack.zip
             proofs/ttd_proofs_pack.zip.sig
             proofs/ttd_proofs_pack.zip.cert
+          if-no-files-found: warn
 
-- name: Commit proofs to repo (proofs/)
-  uses: stefanzweifel/git-auto-commit-action@v5
-  with:
-    commit_message: "chore(proofs): update proofs pack (signed)"
-    file_pattern: |
-      proofs/**
-      ttd_proofs_pack.zip
+      # ------- COMMIT TO REPO -------
+      - name: Commit proofs to repo (proofs/)
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "chore(proofs): update proofs pack (signed)"
+          file_pattern: |
+            proofs/**
+            ttd_proofs_pack.zip
 
+      # ------- OPTIONAL: attach to a Release on tag -------
       - name: Release on tag
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
