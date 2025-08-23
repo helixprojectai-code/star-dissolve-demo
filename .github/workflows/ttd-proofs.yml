@@ -139,6 +139,8 @@ jobs:
           z.close()
           print("Wrote ttd_proofs_pack.zip")
           PY
+              - name: Install cosign (Sigstore)
+        uses: sigstore/cosign-installer@v3.5.0
 
       - name: Commit proofs to repo (proofs/)
         uses: stefanzweifel/git-auto-commit-action@v5
