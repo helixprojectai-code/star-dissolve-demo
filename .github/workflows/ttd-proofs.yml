@@ -1,0 +1,44 @@
+name: TTD Proofs — build & publish
+on:
+  push:
+    branches: [ main ]
+    tags: [ 'v*', 'ttd-*' ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  proofs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Generate proofs
+        run: |
+          python scripts/generate_proofs.py
+
+      - name: Pack proofs
+        run: |
+          cd proofs && zip -r ../ttd_proofs_pack.zip . && cd ..
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ttd_proofs_pack
+          path: ttd_proofs_pack.zip
+
+      - name: Commit proofs to repo (proofs/)
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "chore(proofs): update proofs pack"
+          file_pattern: proofs/**
+
+      - name: Release on tag
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ttd_proofs_pack.zip
