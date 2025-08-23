@@ -1,6 +1,15 @@
 {
   "algorithm": "sha256",
-  "leaves": [],
-  "levels": [],
-  "merkle_root": null
+  "leaves": [
+    {
+      "file": "index.html",
+      "sha256": "232ea22fb92cfc25de8e2147d0e3b23c1c22f9e7ffa9b369e3ddc0c472c3380a"
+    }
+  ],
+  "levels": [
+    [
+      "232ea22fb92cfc25de8e2147d0e3b23c1c22f9e7ffa9b369e3ddc0c472c3380a"
+    ]
+  ],
+  "merkle_root": "232ea22fb92cfc25de8e2147d0e3b23c1c22f9e7ffa9b369e3ddc0c472c3380a"
 }

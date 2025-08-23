@@ -1,14 +1,21 @@
 {
   "_type": "https://in-toto.io/Statement/v1",
   "predicateType": "https://slsa.dev/provenance/v1",
-  "subject": [],
+  "subject": [
+    {
+      "name": "index.html",
+      "digest": {
+        "sha256": "232ea22fb92cfc25de8e2147d0e3b23c1c22f9e7ffa9b369e3ddc0c472c3380a"
+      }
+    }
+  ],
   "predicate": {
     "buildType": "https://slsa.dev/container-based-build/v1#vite-gh-pages",
     "builder": {
       "id": "github-actions://ttd-proofs"
     },
     "metadata": {
-      "invocationId": "ttd-proofs-1755926700"
+      "invocationId": "ttd-proofs-1755928917"
     }
   }
 }
