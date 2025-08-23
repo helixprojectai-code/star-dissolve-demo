@@ -141,6 +141,17 @@ jobs:
           PY
               - name: Install cosign (Sigstore)
         uses: sigstore/cosign-installer@v3.5.0
+      - name: Upload signed artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ttd_proofs_signed
+          path: |
+            proofs/ATTESTATION.json
+            proofs/ATTESTATION.json.sig
+            proofs/ATTESTATION.json.cert
+            ttd_proofs_pack.zip
+            proofs/ttd_proofs_pack.zip.sig
+            proofs/ttd_proofs_pack.zip.cert
 
       - name: Commit proofs to repo (proofs/)
         uses: stefanzweifel/git-auto-commit-action@v5
