@@ -153,11 +153,13 @@ jobs:
             proofs/ttd_proofs_pack.zip.sig
             proofs/ttd_proofs_pack.zip.cert
 
-      - name: Commit proofs to repo (proofs/)
-        uses: stefanzweifel/git-auto-commit-action@v5
-        with:
-          commit_message: "chore(proofs): update proofs pack"
-          file_pattern: proofs/**
+- name: Commit proofs to repo (proofs/)
+  uses: stefanzweifel/git-auto-commit-action@v5
+  with:
+    commit_message: "chore(proofs): update proofs pack (signed)"
+    file_pattern: |
+      proofs/**
+      ttd_proofs_pack.zip
 
       - name: Release on tag
         if: startsWith(github.ref, 'refs/tags/')
