@@ -81,7 +81,7 @@
     const lerp = (a,b,t)=>a+(b-a)*t;
 
     // Build star point cloud
-    function makeStarPoints(count=1800, R=150, r=62){
+    function makeStarPoints(count=3600, R=150, r=62){
       const pts = [];
       const step = Math.PI/5; // 5 spikes
       let rot = -Math.PI/2;
