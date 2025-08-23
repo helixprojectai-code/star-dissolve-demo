@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Star — Dissolve & Reform (Three.js)</title>
+    <meta name="description" content="Interactive star-shaped particle system that dissolves and reforms with bloom, pulse, and theme switching. Built with Three.js.">
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <noscript>
+      <div class="noscript">This demo requires JavaScript. Please enable it to view the animation.</div>
+    </noscript>
+
+    <div id="app" aria-live="polite">
+      <div id="loading" class="loading">Loading modules…</div>
+
+      <div class="hud" role="region" aria-label="Controls">
+        <div class="left">
+          <strong>Star — Dissolve/Reform</strong>
+          <span class="sep" aria-hidden="true">•</span>
+          <span id="fps" aria-label="frames per second">0 fps</span>
+        </div>
+        <div class="right">
+          <label for="theme" class="sr-only">Theme</label>
+          <select id="theme" aria-label="Select color theme">
+            <option value="starlight">Starlight</option>
+            <option value="cosmic">Cosmic</option>
+            <option value="inferno">Inferno</option>
+            <option value="aurora">Aurora</option>
+          </select>
+
+          <button id="toggle" aria-pressed="false" aria-label="Toggle dissolve">Dissolve</button>
+          <button id="pulse" aria-pressed="true" aria-label="Toggle pulse">Pulse: On</button>
+          <button id="reset" aria-label="Reset animation">Reset</button>
+
+          <label for="particles" class="slider-label" aria-label="Particle count">Particles</label>
+          <input id="particles" type="range" min="800" max="6000" step="200" value="2800" aria-valuemin="800" aria-valuemax="6000" aria-valuenow="2800" />
+          <output id="particlesOut" for="particles">2800</output>
+        </div>
+      </div>
+
+      <canvas id="c">Your browser does not support HTML5 Canvas.</canvas>
+
+      <footer>
+        <span>Three.js + UnrealBloomPass • Themes, pulse, dissolve/reform • © 2025 Helix (MIT)</span>
+      </footer>
+    </div>
+
+    <script type="module" src="./src/main.js"></script>
+  </body>
+</html>
