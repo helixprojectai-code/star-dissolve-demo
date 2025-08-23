@@ -1,11 +1,11 @@
-import os, json, hashlib, time, zipfile
+import os, json, hashlib, time
 from pathlib import Path
 
 ROOT = Path('.')
 OUT = ROOT / 'proofs'
 OUT.mkdir(exist_ok=True)
 
-# Collect artifacts to attest (adjust patterns if needed)
+# Collect artifacts to attest (adjust as needed)
 patterns = ['*.zip', 'dist/**/*']
 files = []
 for pat in patterns:
@@ -21,8 +21,7 @@ def sha256_file(path: Path):
     return h.hexdigest()
 
 # HASHES.txt
-lines = []
-hashes = []
+lines, hashes = [], []
 for p in files:
     h = sha256_file(p)
     lines.append(f"{h}  {p.as_posix()} ({p.stat().st_size} bytes)")
