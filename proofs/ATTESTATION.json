@@ -3,19 +3,19 @@
   "predicateType": "https://slsa.dev/provenance/v1",
   "subject": [
     {
-      "name": "index.html",
+      "name": "proofs/materials/deployed.index.html",
       "digest": {
-        "sha256": "114fbea4309f0482cb69d6b7b6d06fbc063228b78bd3bb3216ac427b5ff79db4"
+        "sha256": "232ea22fb92cfc25de8e2147d0e3b23c1c22f9e7ffa9b369e3ddc0c472c3380a"
       }
     }
   ],
   "predicate": {
-    "buildType": "https://slsa.dev/container-based-build/v1#static",
+    "buildType": "https://slsa.dev/container-based-build/v1#vite-or-deployed",
     "builder": {
       "id": "github-actions://ttd-proofs"
     },
     "metadata": {
-      "invocationId": "ttd-proofs-1755932053"
+      "invocationId": "ttd-proofs-1755933030"
     }
   }
 }

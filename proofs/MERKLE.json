@@ -2,14 +2,14 @@
   "algorithm": "sha256",
   "leaves": [
     {
-      "file": "index.html",
-      "sha256": "114fbea4309f0482cb69d6b7b6d06fbc063228b78bd3bb3216ac427b5ff79db4"
+      "file": "proofs/materials/deployed.index.html",
+      "sha256": "232ea22fb92cfc25de8e2147d0e3b23c1c22f9e7ffa9b369e3ddc0c472c3380a"
     }
   ],
   "levels": [
     [
-      "114fbea4309f0482cb69d6b7b6d06fbc063228b78bd3bb3216ac427b5ff79db4"
+      "232ea22fb92cfc25de8e2147d0e3b23c1c22f9e7ffa9b369e3ddc0c472c3380a"
     ]
   ],
-  "merkle_root": "114fbea4309f0482cb69d6b7b6d06fbc063228b78bd3bb3216ac427b5ff79db4"
+  "merkle_root": "232ea22fb92cfc25de8e2147d0e3b23c1c22f9e7ffa9b369e3ddc0c472c3380a"
 }
