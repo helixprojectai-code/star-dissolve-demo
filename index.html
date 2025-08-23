@@ -1,52 +1,185 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Star — Dissolve & Reform (Three.js)</title>
-    <meta name="description" content="Interactive star-shaped particle system that dissolves and reforms with bloom, pulse, and theme switching. Built with Three.js.">
-    <link rel="stylesheet" href="./styles.css" />
-  </head>
-  <body>
-    <noscript>
-      <div class="noscript">This demo requires JavaScript. Please enable it to view the animation.</div>
-    </noscript>
-
-    <div id="app" aria-live="polite">
-      <div id="loading" class="loading">Loading modules…</div>
-
-      <div class="hud" role="region" aria-label="Controls">
-        <div class="left">
-          <strong>Star — Dissolve/Reform</strong>
-          <span class="sep" aria-hidden="true">•</span>
-          <span id="fps" aria-label="frames per second">0 fps</span>
-        </div>
-        <div class="right">
-          <label for="theme" class="sr-only">Theme</label>
-          <select id="theme" aria-label="Select color theme">
-            <option value="starlight">Starlight</option>
-            <option value="cosmic">Cosmic</option>
-            <option value="inferno">Inferno</option>
-            <option value="aurora">Aurora</option>
-          </select>
-
-          <button id="toggle" aria-pressed="false" aria-label="Toggle dissolve">Dissolve</button>
-          <button id="pulse" aria-pressed="true" aria-label="Toggle pulse">Pulse: On</button>
-          <button id="reset" aria-label="Reset animation">Reset</button>
-
-          <label for="particles" class="slider-label" aria-label="Particle count">Particles</label>
-          <input id="particles" type="range" min="800" max="6000" step="200" value="2800" aria-valuemin="800" aria-valuemax="6000" aria-valuenow="2800" />
-          <output id="particlesOut" for="particles">2800</output>
-        </div>
-      </div>
-
-      <canvas id="c">Your browser does not support HTML5 Canvas.</canvas>
-
-      <footer>
-        <span>Three.js + UnrealBloomPass • Themes, pulse, dissolve/reform • © 2025 Helix (MIT)</span>
-      </footer>
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Star — Dissolve & Reform (Three.js)</title>
+  <meta name="description" content="A star dissolves into particles and reforms, with bloom, pulse, and switchable themes. Runs on GitHub Pages without a build.">
+  <style>
+    *{box-sizing:border-box} html,body{height:100%} body{margin:0;background:#0b0f15;color:#dfe7ff;font:14px/1.4 system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;overflow:hidden}
+    .hud{position:absolute;inset:16px 16px auto 16px;display:flex;justify-content:space-between;align-items:center;background:rgba(10,15,24,.55);backdrop-filter:blur(6px);border:1px solid rgba(255,255,255,.08);border-radius:16px;padding:10px 12px;gap:8px;z-index:10}
+    .hud .left{display:flex;align-items:center;gap:8px;color:#9cb0cf}.hud .left .sep{opacity:.5}
+    .hud .right{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+    select,button{background:rgba(255,255,255,.08);color:#e9f1ff;border:1px solid rgba(255,255,255,.18);border-radius:12px;padding:8px 12px;cursor:pointer}
+    #c{width:100%;height:100%;display:block}
+    footer{position:absolute;inset:auto 0 0 0;color:#ddd;text-align:center;padding:12px 16px;background:linear-gradient(to bottom,rgba(0,0,0,0),rgba(0,0,0,.35));font-size:12px}
+  </style>
+</head>
+<body>
+  <div class="hud">
+    <div class="left">
+      <strong>Star — Dissolve/Reform</strong>
+      <span class="sep">•</span>
+      <span id="fps">0 fps</span>
     </div>
+    <div class="right">
+      <label for="theme" style="position:absolute;left:-9999px">Theme</label>
+      <select id="theme">
+        <option value="starlight">Starlight</option>
+        <option value="cosmic">Cosmic</option>
+        <option value="inferno">Inferno</option>
+        <option value="aurora">Aurora</option>
+      </select>
+      <button id="toggle">Dissolve</button>
+      <button id="pulse">Pulse: On</button>
+      <button id="reset">Reset</button>
+    </div>
+  </div>
 
-    <script type="module" src="./src/main.js"></script>
-  </body>
-</html>
+  <canvas id="c">Your browser does not support HTML5 Canvas.</canvas>
+
+  <footer>
+    <span>Three.js + UnrealBloomPass • Toggle themes, pulse, and dissolve/reform • © 2025 Helix (MIT)</span>
+  </footer>
+
+  <!-- Runs directly on GitHub Pages (CDN ES modules) -->
+  <script type="module">
+    import * as THREE from 'https://unpkg.com/three@0.158.0/build/three.module.js';
+    import { OrbitControls } from 'https://unpkg.com/three@0.158.0/examples/jsm/controls/OrbitControls.js';
+    import { EffectComposer } from 'https://unpkg.com/three@0.158.0/examples/jsm/postprocessing/EffectComposer.js';
+    import { RenderPass } from 'https://unpkg.com/three@0.158.0/examples/jsm/postprocessing/RenderPass.js';
+    import { UnrealBloomPass } from 'https://unpkg.com/three@0.158.0/examples/jsm/postprocessing/UnrealBloomPass.js';
+
+    const canvas = document.getElementById('c');
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias:true, alpha:false });
+    renderer.setPixelRatio(Math.min(2, window.devicePixelRatio));
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x070b12);
+    const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.01, 100);
+    camera.position.set(0,0,4.5);
+
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.enablePan = false;
+
+    const composer = new EffectComposer(renderer);
+    composer.addPass(new RenderPass(scene, camera));
+    const bloom = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 1.2, 0.8, 0.0);
+    composer.addPass(bloom);
+
+    const THEMES = {
+      starlight: { colors: [0xffffff, 0x88c9ff], bloom: 1.2, bg: 0x070b12 },
+      cosmic:    { colors: [0x50ffd3, 0xa482ff], bloom: 1.6, bg: 0x080913 },
+      inferno:   { colors: [0xffe079, 0xff5a2e], bloom: 1.5, bg: 0x120807 },
+      aurora:    { colors: [0x70ff7a, 0x66ccff], bloom: 1.4, bg: 0x05120b }
+    };
+
+    function makeStarShape(R=1.5, r=0.62, spikes=5){
+      const s = new THREE.Shape(); const step = Math.PI/spikes; let a = -Math.PI/2;
+      s.moveTo(Math.cos(a)*R, Math.sin(a)*R);
+      for(let i=0;i<spikes;i++){ a+=step; s.lineTo(Math.cos(a)*r, Math.sin(a)*r); a+=step; s.lineTo(Math.cos(a)*R, Math.sin(a)*R); }
+      s.closePath(); return s;
+    }
+
+    function generateStarPoints(count=2800){
+      const shape = makeStarShape();
+      const outline = shape.getSpacedPoints(Math.min(1400, Math.max(300, Math.floor(count*0.55))));
+      const pts = [];
+      for(let i=0;i<count-outline.length;i++){
+        const t = Math.random();
+        const a = outline[(Math.random()*outline.length)|0];
+        const b = outline[(Math.random()*outline.length)|0];
+        const x = a.x + (b.x-a.x)*t;
+        const y = a.y + (b.y-a.y)*t;
+        const k = (Math.random()*0.32) * (Math.random()<0.5?-1:1);
+        pts.push(new THREE.Vector3(x*(1+k), y*(1+k), (Math.random()-0.5)*0.16));
+      }
+      outline.forEach(p => pts.push(new THREE.Vector3(p.x, p.y, (Math.random()-0.5)*0.1)));
+      return pts;
+    }
+
+    let basePositions = generateStarPoints(2800);
+    const geom = new THREE.BufferGeometry().setFromPoints(basePositions);
+    geom.center();
+
+    const colors = new Float32Array(basePositions.length*3);
+    geom.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+
+    const material = new THREE.PointsMaterial({
+      size: 0.02, sizeAttenuation: true, vertexColors: true, transparent: true, opacity: 1.0, depthWrite: false
+    });
+
+    const points = new THREE.Points(geom, material);
+    scene.add(points);
+
+    let scatter = new Float32Array(basePositions.length*3);
+    function reseedScatter(radius=4.0){
+      for(let i=0;i<scatter.length;i+=3){
+        const r = radius * Math.cbrt(Math.random());
+        const th = Math.random()*Math.PI*2;
+        const ph = Math.acos(2*Math.random()-1);
+        scatter[i] = r*Math.sin(ph)*Math.cos(th);
+        scatter[i+1] = r*Math.sin(ph)*Math.sin(th);
+        scatter[i+2] = r*Math.cos(ph);
+      }
+    }
+    reseedScatter();
+
+    let dissolve=0, targetDissolve=0, pulseOn=true, themeKey='starlight';
+    function applyTheme(key){
+      themeKey = key;
+      const theme = THEMES[key];
+      bloom.strength = theme.bloom;
+      scene.background = new THREE.Color(theme.bg);
+      const c1 = theme.colors[0], c2 = theme.colors[1];
+      for(let i=0;i<basePositions.length;i++){
+        const t = i/basePositions.length;
+        const col = new THREE.Color(c1).lerp(new THREE.Color(c2), t);
+        colors[i*3]=col.r; colors[i*3+1]=col.g; colors[i*3+2]=col.b;
+      }
+      geom.attributes.color.needsUpdate = true;
+    }
+    applyTheme(themeKey);
+
+    function easeInOut(t){ return t<0.5 ? 2*t*t : 1 - Math.pow(-2*t+2,2)/2; }
+
+    function resize(){
+      camera.aspect = window.innerWidth/window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      composer.setSize(window.innerWidth, window.innerHeight);
+      bloom.setSize(window.innerWidth, window.innerHeight);
+    }
+    window.addEventListener('resize', resize);
+
+    const themeSel = document.getElementById('theme');
+    themeSel.addEventListener('change', e => applyTheme(e.target.value));
+    document.getElementById('toggle').addEventListener('click', ()=>{
+      targetDissolve = targetDissolve>0 ? 0 : 1;
+      if (targetDissolve>0) reseedScatter();
+    });
+    document.getElementById('pulse').addEventListener('click', (e)=>{
+      pulseOn = !pulseOn; e.target.textContent = 'Pulse: ' + (pulseOn?'On':'Off');
+    });
+    document.getElementById('reset').addEventListener('click', ()=>{
+      targetDissolve = 0; dissolve = 0;
+      applyTheme(themeKey);
+    });
+
+    const pos = geom.getAttribute('position');
+    const fpsEl = document.getElementById('fps');
+    let frames=0, lastFps=performance.now();
+
+    function animate(now){
+      requestAnimationFrame(animate);
+      controls.update();
+
+      dissolve += (targetDissolve - dissolve) * 0.06;
+      const k = easeInOut(THREE.MathUtils.clamp(dissolve, 0, 1));
+
+      for(let i=0;i<pos.count;i++){
+        const i3 = i*3;
+        const sx = basePositions[i].x, sy = basePositions
