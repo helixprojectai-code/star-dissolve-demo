@@ -6,7 +6,12 @@ OUT = ROOT / 'proofs'
 OUT.mkdir(exist_ok=True)
 
 # Collect artifacts to attest (adjust as needed)
-patterns = ['*.zip', 'dist/**/*']
+# current deploy: single-file canvas
+patterns = ['index.html']            # add more like 'assets/**/*' if you add files
+# later for Vite build:
+# patterns = ['dist/**/*']
+files = sorted(files, key=lambda p: p.as_posix())
+
 files = []
 for pat in patterns:
     for p in ROOT.glob(pat):
