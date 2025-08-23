@@ -1,4 +1,4 @@
 import { defineConfig } from 'vite'
 export default defineConfig({
-  base: '/star-dissolve-demo/',
+  base: '/star-dissolve-demo/', // 👈 repo name
 })
