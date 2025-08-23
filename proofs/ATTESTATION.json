@@ -1,0 +1,14 @@
+{
+  "_type": "https://in-toto.io/Statement/v1",
+  "predicateType": "https://slsa.dev/provenance/v1",
+  "subject": [],
+  "predicate": {
+    "buildType": "https://slsa.dev/container-based-build/v1#vite-gh-pages",
+    "builder": {
+      "id": "github-actions://ttd-proofs"
+    },
+    "metadata": {
+      "invocationId": "ttd-proofs-1755926423"
+    }
+  }
+}
