@@ -20,14 +20,6 @@ A tiny visual: a star dissolves into glowing particles, scatters with dust-like 
 - GitHub Pages deploy via Actions
 - **TTD proofs** published and **keyless-signed (Sigstore)** on every run
 
-## Run Locally (pick one)
-
-### A) Quick static preview
-```bash
-# any OS with Python 3
-python -m http.server 5173
-# open http://localhost:5173
-
 
 <!-- Project Badges -->
 [![Contributor Covenant](https://img.shields.io/badge/Code%20of%20Conduct-Contributor%20Covenant-blue.svg)](./CODE_OF_CONDUCT.md)
@@ -41,3 +33,14 @@ We value a respectful and welcoming community.
 
 - 📜 Please review our [Code of Conduct](./CODE_OF_CONDUCT.md)  
 - 🤝 See our [Contributing Guidelines](./CONTRIBUTING.md) for how to get involved
+
+
+## Run Locally (pick one)
+
+### A) Quick static preview
+```bash
+# any OS with Python 3
+python -m http.server 5173
+# open http://localhost:5173
+
+
