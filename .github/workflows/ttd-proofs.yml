@@ -1,10 +1,7 @@
 name: TTD Proofs — build & publish
 on:
-  push:
-    branches: [ main ]
-    tags: [ 'v*', 'ttd-*' ]
-  workflow_dispatch:
-
+  push: { branches: [ main ] }
+  workflow_dispatch: {}
 permissions:
   contents: write
 
@@ -13,23 +10,42 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-python@v5
-        with:
-          python-version: '3.x'
+        with: { python-version: '3.x' }
+
+      - name: Debug repo
+        run: |
+          pwd
+          ls -la
+          echo "::group::find index.html"; find . -maxdepth 2 -name 'index.html' -print; echo "::endgroup::"
 
       - name: Generate proofs
-        run: |
-          python scripts/generate_proofs.py
+        run: python scripts/generate_proofs.py
 
-      - name: Pack proofs
+      - name: Show proofs
         run: |
-          cd proofs && zip -r ../ttd_proofs_pack.zip . && cd ..
+          echo "::group::proofs"; ls -la proofs || true; echo "::endgroup::"
+          echo "::group::HASHES"; cat proofs/HASHES.txt || true; echo "::endgroup::"
 
-      - name: Upload artifact
+      - name: Upload proofs folder (artifact)
         uses: actions/upload-artifact@v4
         with:
           name: ttd_proofs_pack
-          path: ttd_proofs_pack.zip
+          path: proofs/**
+
+      - name: Pack ZIP for releases (Python zipper)
+        run: |
+          python - <<'PY'
+          import zipfile, os
+          z=zipfile.ZipFile('ttd_proofs_pack.zip','w', zipfile.ZIP_DEFLATED)
+          for root,_,files in os.walk('proofs'):
+            for f in files:
+              p=os.path.join(root,f)
+              z.write(p, arcname=os.path.relpath(p, 'proofs'))
+          z.close()
+          print("Wrote ttd_proofs_pack.zip")
+          PY
 
       - name: Commit proofs to repo (proofs/)
         uses: stefanzweifel/git-auto-commit-action@v5
