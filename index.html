@@ -38,6 +38,7 @@
       <button id="toggle">Dissolve</button>
       <button id="pulse">Pulse: On</button>
       <button id="reset">Reset</button>
+      <button id="auto">Auto: On</button>
     </div>
   </div>
 
@@ -161,6 +162,12 @@
     document.getElementById('reset').addEventListener('click', ()=>{
       targetDissolve = 0; dissolve = 0; rot = 0; applyTheme(themeKey);
     });
+     const autoBtn = document.getElementById('auto');
+  autoBtn.addEventListener('click', () => {
+    AUTO.enabled = !AUTO.enabled;
+    autoBtn.textContent = 'Auto: ' + (AUTO.enabled ? 'On' : 'Off');
+    if (AUTO.enabled) { autoPhase = 0; autoT0 = performance.now(); targetDissolve = 0; }
+  });
 
     // FPS readout
     const fpsEl = document.getElementById('fps');
