@@ -6,7 +6,8 @@
   <title>Star — Dissolve & Reform (Canvas 2D, No Dependencies)</title>
   <meta name="description" content="Animated star that dissolves into dust and reforms with pulse and themes. Pure Canvas2D — no external scripts.">
   <style>
-    *{box-sizing:border-box} html,body{height:100%} body{margin:0;background:#0b0f15;color:#dfe7ff;font:14px/1.4 system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;overflow:hidden}
+    *{box-sizing:border-box} html,body{height:100%}
+    body{margin:0;background:#0b0f15;color:#dfe7ff;font:14px/1.4 system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;overflow:hidden}
     .hud{position:absolute;inset:16px 16px auto 16px;display:flex;justify-content:space-between;align-items:center;background:rgba(10,15,24,.55);backdrop-filter:blur(6px);border:1px solid rgba(255,255,255,.08);border-radius:16px;padding:10px 12px;gap:8px;z-index:10}
     .hud .left{display:flex;align-items:center;gap:8px;color:#9cb0cf}.hud .left .sep{opacity:.5}
     .hud .right{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
@@ -42,13 +43,13 @@
   <div id="err"></div>
 
   <script>
-    // --- tiny on-page error helper
+    // Show errors on-page to avoid guessing
     const errBox = document.getElementById('err');
     function showErr(msg){ errBox.style.display='block'; errBox.textContent = msg; }
     window.addEventListener('error', e => showErr('Error: ' + e.message));
     window.addEventListener('unhandledrejection', e => showErr('Promise: ' + (e.reason && e.reason.message || e.reason)));
 
-    // --- Canvas setup
+    // Canvas setup
     const canvas = document.getElementById('c');
     const ctx = canvas.getContext('2d', { alpha: false });
     function resize(){
@@ -59,7 +60,7 @@
     }
     addEventListener('resize', resize, { passive: true }); resize();
 
-    // --- Themes
+    // Themes
     const THEMES = {
       starlight: { colors: ['#ffffff', '#88c9ff'], bg: '#0b0f15' },
       cosmic:    { colors: ['#50ffd3', '#a482ff'], bg: '#0a0b13' },
@@ -68,31 +69,30 @@
     };
     let themeKey = 'starlight';
 
-    // --- Utils
+    // Utils
     const hex2rgb = (h) => {
       const m = h.replace('#',''); const n = m.length===3 ? m.split('').map(c=>c+c).join('') : m;
       const i = parseInt(n, 16); return { r:(i>>16)&255, g:(i>>8)&255, b:i&255 };
     };
     const lerp = (a,b,t)=>a+(b-a)*t;
 
-    // --- Star point cloud
+    // Build star point cloud
     function makeStarPoints(count=1800, R=150, r=62){
       const pts = [];
       const step = Math.PI/5; // 5 spikes
       let rot = -Math.PI/2;
       const outline = [];
-      // outline polyline
       const segs = Math.min(900, Math.max(200, Math.floor(count*0.5)));
       for (let i=0;i<5;i++){
         outline.push({x:Math.cos(rot)*R,y:Math.sin(rot)*R}); rot+=step;
         outline.push({x:Math.cos(rot)*r,y:Math.sin(rot)*r}); rot+=step;
       }
-      // resample outline
+      // resample outline into O
       const O = [];
       for (let i=0;i<outline.length;i++){
         const a = outline[i]; const b = outline[(i+1)%outline.length];
         const L = Math.hypot(b.x-a.x,b.y-a.y);
-        const n = Math.max(2, Math.floor(segs/outline.length * (L/(R))));
+        const n = Math.max(2, Math.floor(segs/outline.length * (L/R)));
         for (let j=0;j<n;j++){ const t=j/n; O.push({x:lerp(a.x,b.x,t), y:lerp(a.y,b.y,t)}); }
       }
       // interior jitter
@@ -120,7 +120,7 @@
     }
     reseedScatter();
 
-    // per-point colors for current theme
+    // Per-point colors for current theme
     let colors = new Array(base.length);
     function applyTheme(key){
       themeKey = key;
@@ -137,15 +137,15 @@
     }
     applyTheme(themeKey);
 
-    // --- Animation state
+    // Animation state
     let dissolve = 0, targetDissolve = 0, pulseOn = true, rot = 0;
     const easeInOut = t => t<0.5?2*t*t:1-(((-2*t+2)**2)/2);
 
-    // --- Auto cycle with initial star period
+    // Auto cycle with initial star period
     const AUTO = { enabled:true, introHoldMs:2000, dissolveMs:2500, scatteredHoldMs:1500, reformMs:2500, loop:true };
     let autoPhase = 0, autoT0 = performance.now();
 
-    // --- UI
+    // UI
     const themeSel = document.getElementById('theme');
     themeSel.addEventListener('change', e => applyTheme(e.target.value));
     document.getElementById('toggle').addEventListener('click', ()=>{
@@ -156,19 +156,18 @@
       pulseOn = !pulseOn; e.target.textContent = 'Pulse: ' + (pulseOn?'On':'Off');
     });
     document.getElementById('reset').addEventListener('click', ()=>{
-      targetDissolve = 0; dissolve = 0; rot = 0;
-      applyTheme(themeKey);
+      targetDissolve = 0; dissolve = 0; rot = 0; applyTheme(themeKey);
     });
 
-    // --- FPS readout
+    // FPS readout
     const fpsEl = document.getElementById('fps');
     let frames=0, lastFps=performance.now();
 
-    // --- Draw loop (Canvas 2D, additive blend)
+    // Draw loop (Canvas 2D, additive-ish)
     function draw(now){
       requestAnimationFrame(draw);
 
-      // auto phases
+      // Auto phases
       if (AUTO.enabled){
         const elapsed = now - autoT0;
         if (autoPhase===0 && elapsed>=AUTO.introHoldMs){ autoPhase=1; autoT0=now; targetDissolve=1; reseedScatter(); }
@@ -177,34 +176,34 @@
         else if (autoPhase===3 && (elapsed>=AUTO.reformMs || dissolve<0.02)){ if (AUTO.loop){ autoPhase=0; autoT0=now; } else { AUTO.enabled=false; } }
       }
 
-      // state
+      // State
       dissolve += (targetDissolve - dissolve) * 0.06;
       const k = easeInOut(Math.max(0, Math.min(1, dissolve)));
       const t = now*0.0015;
       const pulse = pulseOn ? (Math.sin(t)*0.12 + 0.15) : 0.12;
       rot += 0.0015;
 
-      // clear
+      // Clear
       ctx.fillStyle = getComputedStyle(document.body).backgroundColor;
       ctx.fillRect(0,0,innerWidth,innerHeight);
 
-      // transform
+      // Transform
       ctx.save();
       ctx.translate(innerWidth/2, innerHeight/2);
       const s = 1.0 + pulse*(1.0 - 0.5*k);
       ctx.scale(s, s);
       ctx.rotate(rot);
 
-      // additive-ish glow
+      // Additive glow
       ctx.globalCompositeOperation = 'lighter';
 
-      // draw particles
+      // Draw particles
       for (let i=0;i<base.length;i++){
         const bx = base[i].x, by = base[i].y, bz = base[i].z;
         const tx = scatter[i*3], ty = scatter[i*3+1], tz = scatter[i*3+2];
         const x = bx + (tx - bx)*k;
         const y = by + (ty - by)*k;
-        const d = 1 + (bz + (tz-bz)*k)*0.002; // slight depth-ish scaling
+        const d = 1 + (bz + (tz-bz)*k)*0.002; // pseudo depth
         const c = colors[i];
         ctx.fillStyle = `rgba(${c.r},${c.g},${c.b},0.75)`;
         const r = 1.4 * d * (1 + pulse*0.5);
@@ -214,7 +213,7 @@
       ctx.restore();
       ctx.globalCompositeOperation = 'source-over';
 
-      // fps
+      // FPS
       frames++; const dt = now - lastFps;
       if (dt >= 500){ fpsEl.textContent = Math.round((frames/dt)*1000) + ' fps'; frames=0; lastFps=now; }
     }
