@@ -25,6 +25,14 @@ jobs:
           echo "== find dist (2 levels) ==" && find . -maxdepth 2 -type d -name dist -print || true
 
       # ------- GENERATE PROOFS -------
+      - uses: actions/setup-node@v4
+  with: { node-version: 20, cache: npm }
+
+- name: Build (for proofs)
+  run: |
+    npm ci || npm i
+    npm run build
+
       - name: Generate proofs (inline)
         run: |
           python - <<'PY'
