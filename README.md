@@ -20,11 +20,6 @@ A tiny visual: a star dissolves into glowing particles, scatters with dust-like 
 - GitHub Pages deploy via Actions
 - **TTD proofs** published and **keyless-signed (Sigstore)** on every run
 
-
-<!-- Project Badges -->
-[![Contributor Covenant](https://img.shields.io/badge/Code%20of%20Conduct-Contributor%20Covenant-blue.svg)](./CODE_OF_CONDUCT.md)
-[![Contributing](https://img.shields.io/badge/Contributing-Guidelines-brightgreen.svg)](./CONTRIBUTING.md)
-
 ---
 
 <!-- Project Badges -->
