@@ -33,6 +33,13 @@ A tiny visual: a star dissolves into glowing particles, scatters with dust-like 
 
 ---
 
+## Documentation
+
+- 📘 [How to Proof — HELIX // TTD Protocol](./HOW_TO_PROOF.md)  
+  Step-by-step guide for creating, sealing, and verifying TTD Proof Tokens, with a dedicated section for the Living Intell group.
+
+---
+
 ## Community & Guidelines
 
 We value a respectful and welcoming community.
